@@ -3,17 +3,10 @@
 <head>
   <title>Hide & Seek Demo</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  
   <!-- Load Bropella Font -->
   <link href="https://fonts.googleapis.com/css2?family=Bropella:wght@400;700&display=swap" rel="stylesheet">
-  
   <style>
-    body {
-      margin: 0;
-      padding: 0;
-    }
-
-    /* iOS-style liquid glass header */
+    body { margin: 0; padding: 0; }
     #header {
       position: fixed;
       top: 0;
@@ -24,8 +17,8 @@
       text-align: center;
       font-family: 'Bropella', sans-serif;
       font-size: 24px;
-      font-weight: 700;      /* bold */
-      color: #000000;        /* black text */
+      font-weight: 700;
+      color: #000000;
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(12px) saturate(180%);
       -webkit-backdrop-filter: blur(12px) saturate(180%);
@@ -34,13 +27,21 @@
       z-index: 1000;
       border-radius: 0 0 16px 16px;
     }
-
-    /* Map styling */
-    #map {
-      height: calc(100vh - 60px);
-      width: 100%;
-      margin-top: 60px;           /* space for header */
+    #map { height: calc(100vh - 60px); width: 100%; margin-top: 60px; }
+    #controls {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(255,255,255,0.9);
+      padding: 10px 15px;
+      border-radius: 10px;
+      font-family: 'Bropella', sans-serif;
+      z-index: 1001;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
+    #controls input { padding: 5px; font-size: 14px; }
+    #controls button { padding: 5px 10px; margin-left: 5px; }
   </style>
 </head>
 <body>
@@ -48,12 +49,19 @@
 <div id="header">Hide & Seek Demo</div>
 <div id="map"></div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<div id="controls">
+  <input type="text" id="nameInput" placeholder="Enter your name">
+  <button id="changeNameBtn">Change Name</button>
+  <select id="roleSelect">
+    <option value="hider">Hider</option>
+    <option value="seeker">Seeker</option>
+  </select>
+</div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script type="module">
-  // ---------------- Firebase Setup ----------------
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+  import { getDatabase, ref, set, onValue, onDisconnect, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyD259A37SrWNP8jaRP7h3NLKQMIAsr5jC4",
@@ -70,24 +78,49 @@
 
   // ---------------- Player Setup ----------------
   let playerId = localStorage.getItem("playerId");
-  if (!playerId) {
-    playerId = "Player_" + Math.floor(Math.random() * 1000);
-    localStorage.setItem("playerId", playerId);
-  }
+  let playerName = localStorage.getItem("playerName") || "Player_" + Math.floor(Math.random()*1000);
+  let playerRole = localStorage.getItem("playerRole") || "hider";
 
-  const playerMarkers = {};
+  localStorage.setItem("playerName", playerName);
+  localStorage.setItem("playerRole", playerRole);
+  if (!playerId) { playerId = "player_" + Date.now(); localStorage.setItem("playerId", playerId); }
+
+  // UI elements
+  const nameInput = document.getElementById("nameInput");
+  const changeNameBtn = document.getElementById("changeNameBtn");
+  const roleSelect = document.getElementById("roleSelect");
+  nameInput.value = playerName;
+  roleSelect.value = playerRole;
+
+  changeNameBtn.onclick = () => {
+    playerName = nameInput.value.trim() || playerName;
+    playerRole = roleSelect.value;
+    localStorage.setItem("playerName", playerName);
+    localStorage.setItem("playerRole", playerRole);
+    update(ref(database, `players/${playerId}`), { name: playerName, role: playerRole });
+  }
 
   // ---------------- Map Setup ----------------
   const map = L.map('map').setView([6.033, 80.216], 16);
-
-  // Satellite imagery (Esri World Imagery)
   const satellite = L.tileLayer(
     'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    {
-      attribution: 'Tiles © Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community',
-      maxZoom: 19
-    }
+    { attribution: 'Tiles © Esri', maxZoom: 19 }
   ).addTo(map);
+
+  const playerMarkers = {};
+
+  // ---------------- Safe Zone ----------------
+  let safeZone = L.circle([6.033, 80.216], { radius: 50, color: 'blue', fillOpacity: 0.2, draggable: true }).addTo(map);
+  safeZone.dragging = safeZone.dragging || L.Draggable ? new L.Draggable(safeZone._path) : null;
+
+  // Save safe zone to Firebase
+  const saveSafeZone = () => {
+    const center = safeZone.getLatLng();
+    const radius = safeZone.getRadius();
+    set(ref(database, "safeZone"), { lat: center.lat, lon: center.lng, radius });
+  }
+  saveSafeZone();
+  safeZone.on('move', saveSafeZone);
 
   // ---------------- Track Location ----------------
   if (navigator.geolocation) {
@@ -95,49 +128,43 @@
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
 
-      // Write location to Firebase
       set(ref(database, `players/${playerId}`), {
         lat,
         lon,
+        name: playerName,
+        role: playerRole,
         lastUpdate: Date.now()
       });
-
-      // Remove on disconnect
       onDisconnect(ref(database, `players/${playerId}`)).remove();
 
-      // Add/update marker
       if (!playerMarkers[playerId]) {
         playerMarkers[playerId] = L.marker([lat, lon])
           .addTo(map)
-          .bindTooltip(playerId, { permanent: true, direction: 'top', offset: [0, -10] });
+          .bindTooltip(playerName, { permanent: true, direction: 'top', offset: [0, -10] });
       } else {
         playerMarkers[playerId].setLatLng([lat, lon]);
+        playerMarkers[playerId].setTooltipContent(playerName);
       }
 
       map.setView([lat, lon], 16);
-
     }, err => alert("Location error: " + err.message), { enableHighAccuracy: true });
-  } else {
-    alert("Geolocation is not supported by your browser.");
   }
 
   // ---------------- Listen to all players ----------------
   onValue(ref(database, "players"), snapshot => {
     const players = snapshot.val() || {};
-
     for (const id in players) {
-      const { lat, lon } = players[id];
-
+      const { lat, lon, name } = players[id];
       if (!playerMarkers[id]) {
         playerMarkers[id] = L.marker([lat, lon])
           .addTo(map)
-          .bindTooltip(id, { permanent: true, direction: 'top', offset: [0, -10] });
+          .bindTooltip(name, { permanent: true, direction: 'top', offset: [0, -10] });
       } else {
         playerMarkers[id].setLatLng([lat, lon]);
+        playerMarkers[id].setTooltipContent(name);
       }
     }
 
-    // Remove disconnected markers
     for (const id in playerMarkers) {
       if (!players[id]) {
         map.removeLayer(playerMarkers[id]);
@@ -145,6 +172,34 @@
       }
     }
   });
+
+  // ---------------- Check Safe Zone ----------------
+  setInterval(() => {
+    onValue(ref(database, "safeZone"), snapshot => {
+      const zone = snapshot.val();
+      if (!zone) return;
+      safeZone.setLatLng([zone.lat, zone.lon]);
+      safeZone.setRadius(zone.radius);
+    });
+
+    // Optional: highlight players outside safe zone for seekers
+    onValue(ref(database, "players"), snapshot => {
+      const players = snapshot.val() || {};
+      const center = safeZone.getLatLng();
+      const radius = safeZone.getRadius();
+      for (const id in players) {
+        if (!playerMarkers[id]) continue;
+        const p = players[id];
+        const dist = map.distance([p.lat, p.lon], center);
+        if (dist > radius && p.role === "hider") {
+          playerMarkers[id].setOpacity(0.5); // semi-transparent if outside
+        } else {
+          playerMarkers[id].setOpacity(1);
+        }
+      }
+    });
+
+  }, 2000); // check every 2 seconds
 </script>
 
 </body>
