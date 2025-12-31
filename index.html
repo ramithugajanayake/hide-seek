@@ -37,8 +37,8 @@
   // ---------------- Player Setup ----------------
   let playerId = localStorage.getItem("playerId");
   if (!playerId) {
-    playerId = prompt("Enter your player name");
-    if (!playerId) playerId = "Player_" + Math.floor(Math.random() * 1000);
+    // Assign random name automatically
+    playerId = "Player_" + Math.floor(Math.random() * 1000);
     localStorage.setItem("playerId", playerId);
   }
 
@@ -64,12 +64,17 @@
       // Remove yourself on disconnect
       onDisconnect(ref(database, `players/${playerId}`)).remove();
 
-      // Center map on yourself (optional)
+      // Update your marker immediately
       if (!playerMarkers[playerId]) {
-        playerMarkers[playerId] = L.marker([lat, lon]).addTo(map).bindPopup(playerId);
+        playerMarkers[playerId] = L.marker([lat, lon])
+          .addTo(map)
+          .bindTooltip(playerId, { permanent: true, direction: 'top', offset: [0, -10] });
       } else {
         playerMarkers[playerId].setLatLng([lat, lon]);
       }
+
+      // Optionally center map on yourself
+      map.setView([lat, lon], 16);
 
     }, err => alert("Location error: " + err.message), { enableHighAccuracy: true });
   } else {
@@ -80,18 +85,19 @@
   onValue(ref(database, "players"), snapshot => {
     const players = snapshot.val() || {};
 
-    // Add / update markers for all players
     for (const id in players) {
       const { lat, lon } = players[id];
 
       if (!playerMarkers[id]) {
-  playerMarkers[id] = L.marker([lat, lon])
-    .addTo(map)
-    .bindTooltip(id, { permanent: true, direction: 'top', offset: [0, -10] });
-} else {
-  playerMarkers[id].setLatLng([lat, lon]);
-}
-  // Remove markers for disconnected players
+        playerMarkers[id] = L.marker([lat, lon])
+          .addTo(map)
+          .bindTooltip(id, { permanent: true, direction: 'top', offset: [0, -10] });
+      } else {
+        playerMarkers[id].setLatLng([lat, lon]);
+      }
+    }
+
+    // Remove markers for disconnected players
     for (const id in playerMarkers) {
       if (!players[id]) {
         map.removeLayer(playerMarkers[id]);
