@@ -3,10 +3,8 @@
 <head>
   <title>Hide & Seek Demo</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <!-- Leaflet Editable plugin for resizable circles -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-editable@1.2.0/dist/leaflet-editable.css" />
-  <script src="https://cdn.jsdelivr.net/npm/leaflet-editable@1.2.0/dist/Leaflet.Editable.js"></script>
-
+  
   <!-- Load Bropella Font -->
   <link href="https://fonts.googleapis.com/css2?family=Bropella:wght@400;700&display=swap" rel="stylesheet">
 
@@ -14,42 +12,25 @@
     body { margin: 0; padding: 0; }
     #header {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 60px;
-      padding: 15px 20px;
-      text-align: center;
-      font-family: 'Bropella', sans-serif;
-      font-size: 24px;
-      font-weight: 700;
-      color: #000000;
-      background: rgba(255, 255, 255, 0.1);
+      top: 0; left: 0; width: 100%; height: 60px;
+      padding: 15px 20px; text-align: center;
+      font-family: 'Bropella', sans-serif; font-size: 24px; font-weight: 700;
+      color: #000; background: rgba(255,255,255,0.1);
       backdrop-filter: blur(12px) saturate(180%);
-      -webkit-backdrop-filter: blur(12px) saturate(180%);
       border-bottom: 1px solid rgba(0,0,0,0.1);
-      box-shadow: 0 8px 32px 0 rgba(0,0,0,0.2);
-      z-index: 1000;
+      box-shadow: 0 8px 32px 0 rgba(0,0,0,0.2); z-index: 1000;
       border-radius: 0 0 16px 16px;
     }
     #map { height: calc(100vh - 60px); width: 100%; margin-top: 60px; }
 
     #controls {
-      position: fixed;
-      bottom: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      background: rgba(255,255,255,0.9);
-      padding: 10px 15px;
-      border-radius: 10px;
-      font-family: 'Bropella', sans-serif;
-      z-index: 1001;
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      background: rgba(255,255,255,0.9); padding: 10px 15px;
+      border-radius: 10px; font-family: 'Bropella', sans-serif; z-index: 1001;
       box-shadow: 0 4px 10px rgba(0,0,0,0.2);
     }
     #controls input, #controls select, #controls button {
-      padding: 5px;
-      font-size: 14px;
-      margin: 2px;
+      padding: 5px; font-size: 14px; margin: 2px;
     }
   </style>
 </head>
@@ -70,150 +51,156 @@
 </div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-editable@1.2.0/dist/Leaflet.Editable.js"></script>
 
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue, onDisconnect, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase, ref, set, onValue, onDisconnect, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-  // ---------------- Firebase ----------------
-  const firebaseConfig = {
-    apiKey: "AIzaSyD259A37SrWNP8jaRP7h3NLKQMIAsr5jC4",
-    authDomain: "hide-seek-demo-f6c65.firebaseapp.com",
-    databaseURL: "https://hide-seek-demo-f6c65-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "hide-seek-demo-f6c65",
-    storageBucket: "hide-seek-demo-f6c65.firebasestorage.app",
-    messagingSenderId: "457844478016",
-    appId: "1:457844478016:web:7e576a496bea1fe03d8fa5"
-  };
+// ---------------- Firebase ----------------
+const firebaseConfig = {
+  apiKey: "AIzaSyD259A37SrWNP8jaRP7h3NLKQMIAsr5jC4",
+  authDomain: "hide-seek-demo-f6c65.firebaseapp.com",
+  databaseURL: "https://hide-seek-demo-f6c65-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "hide-seek-demo-f6c65",
+  storageBucket: "hide-seek-demo-f6c65.firebasestorage.app",
+  messagingSenderId: "457844478016",
+  appId: "1:457844478016:web:7e576a496bea1fe03d8fa5"
+};
 
-  const app = initializeApp(firebaseConfig);
-  const database = getDatabase(app);
+const app = initializeApp(firebaseConfig);
+const database = getDatabase(app);
 
-  // ---------------- Player Setup ----------------
-  let playerId = localStorage.getItem("playerId");
-  let playerName = localStorage.getItem("playerName") || "Player_" + Math.floor(Math.random()*1000);
-  let playerRole = localStorage.getItem("playerRole") || "hider";
+// ---------------- Player Setup ----------------
+let playerId = localStorage.getItem("playerId") || ("player_" + Date.now());
+localStorage.setItem("playerId", playerId);
+
+let playerName = localStorage.getItem("playerName") || "Player_" + Math.floor(Math.random()*1000);
+let playerRole = localStorage.getItem("playerRole") || "hider";
+localStorage.setItem("playerName", playerName);
+localStorage.setItem("playerRole", playerRole);
+
+// UI elements
+const nameInput = document.getElementById("nameInput");
+const changeNameBtn = document.getElementById("changeNameBtn");
+const roleSelect = document.getElementById("roleSelect");
+const zoneRadiusInput = document.getElementById("zoneRadius");
+const updateZoneBtn = document.getElementById("updateZoneBtn");
+
+nameInput.value = playerName;
+roleSelect.value = playerRole;
+
+changeNameBtn.onclick = () => {
+  playerName = nameInput.value.trim() || playerName;
+  playerRole = roleSelect.value;
   localStorage.setItem("playerName", playerName);
   localStorage.setItem("playerRole", playerRole);
-  if (!playerId) { playerId = "player_" + Date.now(); localStorage.setItem("playerId", playerId); }
+  update(ref(database, `players/${playerId}`), { name: playerName, role: playerRole });
+}
 
-  const nameInput = document.getElementById("nameInput");
-  const changeNameBtn = document.getElementById("changeNameBtn");
-  const roleSelect = document.getElementById("roleSelect");
-  const zoneRadiusInput = document.getElementById("zoneRadius");
-  const updateZoneBtn = document.getElementById("updateZoneBtn");
+// ---------------- Map Setup ----------------
+const map = L.map('map', { editable: true }).setView([6.033, 80.216], 16);
+const satellite = L.tileLayer(
+  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  { attribution: 'Tiles © Esri', maxZoom: 19 }
+).addTo(map);
 
-  nameInput.value = playerName;
-  roleSelect.value = playerRole;
+const playerMarkers = {};
 
-  changeNameBtn.onclick = () => {
-    playerName = nameInput.value.trim() || playerName;
-    playerRole = roleSelect.value;
-    localStorage.setItem("playerName", playerName);
-    localStorage.setItem("playerRole", playerRole);
-    update(ref(database, `players/${playerId}`), { name: playerName, role: playerRole });
+// ---------------- Safe Zone ----------------
+// Create editable circle using Leaflet.Editable
+let safeZone = map.editTools.startCircle([6.033, 80.216], 50, {
+  color: 'blue', fillOpacity: 0.2
+});
+
+// Save function
+function saveSafeZone() {
+  const center = safeZone.getLatLng();
+  const radius = safeZone.getRadius();
+  set(ref(database, "safeZone"), { lat: center.lat, lon: center.lng, radius });
+}
+
+// Listen to circle changes
+safeZone.on('editable:dragend', saveSafeZone);
+safeZone.on('editable:editing', saveSafeZone);
+
+// Manual radius input
+updateZoneBtn.onclick = () => {
+  const r = Number(zoneRadiusInput.value);
+  if (r > 0) { safeZone.setRadius(r); saveSafeZone(); }
+}
+
+// ---------------- Track Player Location ----------------
+if (navigator.geolocation) {
+  navigator.geolocation.watchPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+
+    set(ref(database, `players/${playerId}`), {
+      lat, lon, name: playerName, role: playerRole, lastUpdate: Date.now()
+    });
+    onDisconnect(ref(database, `players/${playerId}`)).remove();
+
+    if (!playerMarkers[playerId]) {
+      playerMarkers[playerId] = L.marker([lat, lon])
+        .addTo(map)
+        .bindTooltip(playerName, { permanent: true, direction: 'top', offset: [0, -10] });
+    } else {
+      playerMarkers[playerId].setLatLng([lat, lon]);
+      playerMarkers[playerId].setTooltipContent(playerName);
+    }
+
+    map.setView([lat, lon], 16);
+  }, err => alert("Location error: " + err.message), { enableHighAccuracy: true });
+}
+
+// ---------------- Listen to All Players ----------------
+onValue(ref(database, "players"), snapshot => {
+  const players = snapshot.val() || {};
+  for (const id in players) {
+    const { lat, lon, name } = players[id];
+    if (!playerMarkers[id]) {
+      playerMarkers[id] = L.marker([lat, lon])
+        .addTo(map)
+        .bindTooltip(name, { permanent: true, direction: 'top', offset: [0, -10] });
+    } else {
+      playerMarkers[id].setLatLng([lat, lon]);
+      playerMarkers[id].setTooltipContent(name);
+    }
   }
-
-  // ---------------- Map Setup ----------------
-  const map = L.map('map', { editable: true }).setView([6.033, 80.216], 16);
-  const satellite = L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-    { attribution: 'Tiles © Esri', maxZoom: 19 }
-  ).addTo(map);
-
-  const playerMarkers = {};
-
-  // ---------------- Safe Zone ----------------
-  let safeZone = L.circle([6.033, 80.216], { radius: 50, color: 'blue', fillOpacity: 0.2 }).addTo(map);
-  safeZone.enableEdit();
-
-  const saveSafeZone = () => {
-    const center = safeZone.getLatLng();
-    const radius = safeZone.getRadius();
-    set(ref(database, "safeZone"), { lat: center.lat, lon: center.lng, radius });
+  for (const id in playerMarkers) {
+    if (!players[id]) {
+      map.removeLayer(playerMarkers[id]);
+      delete playerMarkers[id];
+    }
   }
-  safeZone.on('editable:dragend', saveSafeZone);
-  safeZone.on('editable:radius', saveSafeZone);
+});
 
-  // Update radius manually from input
-  updateZoneBtn.onclick = () => {
-    const r = Number(zoneRadiusInput.value);
-    if (r > 0) { safeZone.setRadius(r); saveSafeZone(); }
-  }
+// ---------------- Sync Safe Zone ----------------
+setInterval(() => {
+  onValue(ref(database, "safeZone"), snapshot => {
+    const zone = snapshot.val();
+    if (!zone) return;
+    safeZone.setLatLng([zone.lat, zone.lon]);
+    safeZone.setRadius(zone.radius);
+  });
 
-  // ---------------- Track Player Location ----------------
-  if (navigator.geolocation) {
-    navigator.geolocation.watchPosition(pos => {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-
-      set(ref(database, `players/${playerId}`), {
-        lat, lon, name: playerName, role: playerRole, lastUpdate: Date.now()
-      });
-      onDisconnect(ref(database, `players/${playerId}`)).remove();
-
-      if (!playerMarkers[playerId]) {
-        playerMarkers[playerId] = L.marker([lat, lon])
-          .addTo(map)
-          .bindTooltip(playerName, { permanent: true, direction: 'top', offset: [0, -10] });
-      } else {
-        playerMarkers[playerId].setLatLng([lat, lon]);
-        playerMarkers[playerId].setTooltipContent(playerName);
-      }
-
-      map.setView([lat, lon], 16);
-    }, err => alert("Location error: " + err.message), { enableHighAccuracy: true });
-  }
-
-  // ---------------- Listen to All Players ----------------
   onValue(ref(database, "players"), snapshot => {
     const players = snapshot.val() || {};
+    const center = safeZone.getLatLng();
+    const radius = safeZone.getRadius();
     for (const id in players) {
-      const { lat, lon, name } = players[id];
-      if (!playerMarkers[id]) {
-        playerMarkers[id] = L.marker([lat, lon])
-          .addTo(map)
-          .bindTooltip(name, { permanent: true, direction: 'top', offset: [0, -10] });
+      if (!playerMarkers[id]) continue;
+      const p = players[id];
+      const dist = map.distance([p.lat, p.lon], center);
+      if (dist > radius && players[id].role === "hider") {
+        playerMarkers[id].setOpacity(0.5);
       } else {
-        playerMarkers[id].setLatLng([lat, lon]);
-        playerMarkers[id].setTooltipContent(name);
-      }
-    }
-    for (const id in playerMarkers) {
-      if (!players[id]) {
-        map.removeLayer(playerMarkers[id]);
-        delete playerMarkers[id];
+        playerMarkers[id].setOpacity(1);
       }
     }
   });
-
-  // ---------------- Sync Safe Zone ----------------
-  setInterval(() => {
-    onValue(ref(database, "safeZone"), snapshot => {
-      const zone = snapshot.val();
-      if (!zone) return;
-      safeZone.setLatLng([zone.lat, zone.lon]);
-      safeZone.setRadius(zone.radius);
-    });
-
-    // Highlight hiders outside the zone
-    onValue(ref(database, "players"), snapshot => {
-      const players = snapshot.val() || {};
-      const center = safeZone.getLatLng();
-      const radius = safeZone.getRadius();
-      for (const id in players) {
-        if (!playerMarkers[id]) continue;
-        const p = players[id];
-        const dist = map.distance([p.lat, p.lon], center);
-        if (dist > radius && players[id].role === "hider") {
-          playerMarkers[id].setOpacity(0.5);
-        } else {
-          playerMarkers[id].setOpacity(1);
-        }
-      }
-    });
-
-  }, 2000);
+}, 2000);
 </script>
 
 </body>
