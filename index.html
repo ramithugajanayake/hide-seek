@@ -20,24 +20,35 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
     import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
+    // Replace with your Firebase config
     const firebaseConfig = {
-      apiKey: "AIzaSyC_nAuvVwNy2feFGqYNLF5hxR9fuyKGQ4Q",
-      authDomain: "hide-seek-demo.firebaseapp.com",
-      projectId: "hide-seek-demo",
-      storageBucket: "hide-seek-demo.firebasestorage.app",
-      messagingSenderId: "206729002580",
-      appId: "1:206729002580:web:8acdb76c33db7771b8b7c1"
+      apiKey: "AIzaSyD259A37SrWNP8jaRP7h3NLKQMIAsr5jC4",
+      authDomain: "hide-seek-demo-f6c65.firebaseapp.com",
+      databaseURL: "https://hide-seek-demo-default-rtdb.firebaseio.com",
+      projectId: "hide-seek-demo-f6c65",
+      storageBucket: "hide-seek-demo-f6c65.firebasestorage.app",
+      messagingSenderId: "457844478016",
+      appId: "1:457844478016:web:7e576a496bea1fe03d8fa5"
     };
 
     const app = initializeApp(firebaseConfig);
     const database = getDatabase(app);
+
+    // Unique player ID (for demo, use random number)
+    const playerId = "player_" + Math.floor(Math.random() * 10000);
+
+    // Store markers of all players
+    const playerMarkers = {};
   </script>
 
   <!-- Leaflet Map -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Map + Geolocation Code -->
-  <script>
+  <!-- Map + Geolocation + Multiplayer -->
+  <script type="module">
+    import { ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+    import { getDatabase } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+
     const map = L.map('map').setView([6.033, 80.216], 15);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -46,20 +57,22 @@
 
     let marker;
 
+    // Function to update your location
     function updateLocation(position) {
       const lat = position.coords.latitude;
       const lon = position.coords.longitude;
 
+      // Update your marker
       if (!marker) {
-        marker = L.marker([lat, lon]).addTo(map).bindPopup("You are here").openPopup();
+        marker = L.marker([lat, lon], {title: "You"}).addTo(map).bindPopup("You are here").openPopup();
       } else {
         marker.setLatLng([lat, lon]);
       }
 
       map.setView([lat, lon], 18);
 
-      // Send location to Firebase
-      set(ref(database, 'players/player1'), {
+      // Write your location to Firebase
+      set(ref(database, 'players/' + playerId), {
         lat: lat,
         lon: lon,
         lastUpdate: Date.now()
@@ -75,7 +88,33 @@
     } else {
       alert("Geolocation is not supported by your browser.");
     }
+
+    // Listen to all players in Firebase
+    const playersRef = ref(database, 'players');
+    onValue(playersRef, (snapshot) => {
+      const players = snapshot.val() || {};
+
+      for (let id in players) {
+        if (id === playerId) continue; // skip yourself
+
+        const player = players[id];
+        if (!playerMarkers[id]) {
+          // Add marker for new player
+          playerMarkers[id] = L.marker([player.lat, player.lon], {title: id}).addTo(map).bindPopup(id);
+        } else {
+          // Update existing marker
+          playerMarkers[id].setLatLng([player.lat, player.lon]);
+        }
+      }
+
+      // Remove markers of players who left
+      for (let id in playerMarkers) {
+        if (!players[id]) {
+          map.removeLayer(playerMarkers[id]);
+          delete playerMarkers[id];
+        }
+      }
+    });
   </script>
 </body>
 </html>
-
