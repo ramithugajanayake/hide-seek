@@ -10,6 +10,7 @@
 
   <style>
     body { margin: 0; padding: 0; }
+
     #header {
       position: fixed;
       top: 0; left: 0; width: 100%; height: 60px;
@@ -21,6 +22,7 @@
       box-shadow: 0 8px 32px 0 rgba(0,0,0,0.2); z-index: 1000;
       border-radius: 0 0 16px 16px;
     }
+
     #map { height: calc(100vh - 60px); width: 100%; margin-top: 60px; }
 
     #controls {
@@ -31,6 +33,29 @@
     }
     #controls input, #controls select, #controls button {
       padding: 5px; font-size: 14px; margin: 2px;
+    }
+
+    /* Pulsing red marker for hiders outside safe zone */
+    .hider-outside {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: red;
+      border: 2px solid white;
+      animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.5); opacity: 0.5; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+
+    /* Normal player marker */
+    .player-marker {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: blue;
+      border: 2px solid white;
     }
   </style>
 </head>
@@ -108,23 +133,19 @@ const satellite = L.tileLayer(
 const playerMarkers = {};
 
 // ---------------- Safe Zone ----------------
-// Create editable circle using Leaflet.Editable
 let safeZone = map.editTools.startCircle([6.033, 80.216], 50, {
   color: 'blue', fillOpacity: 0.2
 });
 
-// Save function
 function saveSafeZone() {
   const center = safeZone.getLatLng();
   const radius = safeZone.getRadius();
   set(ref(database, "safeZone"), { lat: center.lat, lon: center.lng, radius });
 }
 
-// Listen to circle changes
 safeZone.on('editable:dragend', saveSafeZone);
 safeZone.on('editable:editing', saveSafeZone);
 
-// Manual radius input
 updateZoneBtn.onclick = () => {
   const r = Number(zoneRadiusInput.value);
   if (r > 0) { safeZone.setRadius(r); saveSafeZone(); }
@@ -142,9 +163,11 @@ if (navigator.geolocation) {
     onDisconnect(ref(database, `players/${playerId}`)).remove();
 
     if (!playerMarkers[playerId]) {
-      playerMarkers[playerId] = L.marker([lat, lon])
-        .addTo(map)
-        .bindTooltip(playerName, { permanent: true, direction: 'top', offset: [0, -10] });
+      playerMarkers[playerId] = L.marker([lat, lon], {
+        icon: L.divIcon({ className: 'player-marker' })
+      })
+      .addTo(map)
+      .bindTooltip(playerName, { permanent: true, direction: 'top', offset: [0, -10] });
     } else {
       playerMarkers[playerId].setLatLng([lat, lon]);
       playerMarkers[playerId].setTooltipContent(playerName);
@@ -158,11 +181,13 @@ if (navigator.geolocation) {
 onValue(ref(database, "players"), snapshot => {
   const players = snapshot.val() || {};
   for (const id in players) {
-    const { lat, lon, name } = players[id];
+    const { lat, lon, name, role } = players[id];
     if (!playerMarkers[id]) {
-      playerMarkers[id] = L.marker([lat, lon])
-        .addTo(map)
-        .bindTooltip(name, { permanent: true, direction: 'top', offset: [0, -10] });
+      playerMarkers[id] = L.marker([lat, lon], {
+        icon: L.divIcon({ className: role==="hider"?'player-marker':'player-marker' })
+      })
+      .addTo(map)
+      .bindTooltip(name, { permanent: true, direction: 'top', offset: [0, -10] });
     } else {
       playerMarkers[id].setLatLng([lat, lon]);
       playerMarkers[id].setTooltipContent(name);
@@ -176,7 +201,7 @@ onValue(ref(database, "players"), snapshot => {
   }
 });
 
-// ---------------- Sync Safe Zone ----------------
+// ---------------- Sync Safe Zone + Highlight Hiders ----------------
 setInterval(() => {
   onValue(ref(database, "safeZone"), snapshot => {
     const zone = snapshot.val();
@@ -193,10 +218,12 @@ setInterval(() => {
       if (!playerMarkers[id]) continue;
       const p = players[id];
       const dist = map.distance([p.lat, p.lon], center);
+
+      // Highlight hiders outside the safe zone
       if (dist > radius && players[id].role === "hider") {
-        playerMarkers[id].setOpacity(0.5);
+        playerMarkers[id].setIcon(L.divIcon({ className: 'hider-outside' }));
       } else {
-        playerMarkers[id].setOpacity(1);
+        playerMarkers[id].setIcon(L.divIcon({ className: 'player-marker' }));
       }
     }
   });
