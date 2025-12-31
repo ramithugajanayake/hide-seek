@@ -85,13 +85,13 @@
       const { lat, lon } = players[id];
 
       if (!playerMarkers[id]) {
-        playerMarkers[id] = L.marker([lat, lon]).addTo(map).bindPopup(id);
-      } else {
-        playerMarkers[id].setLatLng([lat, lon]);
-      }
-    }
-
-    // Remove markers for disconnected players
+  playerMarkers[id] = L.marker([lat, lon])
+    .addTo(map)
+    .bindTooltip(id, { permanent: true, direction: 'top', offset: [0, -10] });
+} else {
+  playerMarkers[id].setLatLng([lat, lon]);
+}
+  // Remove markers for disconnected players
     for (const id in playerMarkers) {
       if (!players[id]) {
         map.removeLayer(playerMarkers[id]);
