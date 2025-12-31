@@ -4,11 +4,8 @@
   <title>Hide & Seek Demo</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    #map {
-      height: 90vh;
-      width: 100%;
-    }
     body { margin: 0; padding: 0; }
+    #map { height: 90vh; width: 100%; }
   </style>
 </head>
 <body>
@@ -18,67 +15,25 @@
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<script type="module">
-  // 🔥 Firebase imports
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+<script>
+  const map = L.map('map').setView([6.033, 80.216], 15);
 
-  // 🔐 Firebase config (use YOURS)
-  const firebaseConfig = {
-    apiKey: "AIzaSyD259A37SrWNP8jaRP7h3NLKQMIAsr5jC4",
-    authDomain: "hide-seek-demo-f6c65.firebaseapp.com",
-    databaseURL: "https://hide-seek-demo-f6c65-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "hide-seek-demo-f6c65",
-    storageBucket: "hide-seek-demo-f6c65.firebasestorage.app",
-    messagingSenderId: "457844478016",
-    appId: "1:457844478016:web:7e576a496bea1fe03d8fa5"
-  };
-
-  // 🚀 Init Firebase
-  const app = initializeApp(firebaseConfig);
-  const database = getDatabase(app);
-
-  // 🆔 Stable Player ID
-  let playerId = localStorage.getItem("playerId");
-  if (!playerId) {
-    playerId = prompt("Enter your player name");
-    localStorage.setItem("playerId", playerId);
-  }
-
-  // 🗺️ Map setup
-  const map = L.map('map').setView([6.033, 80.216], 16);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19
   }).addTo(map);
 
-  const playerMarkers = {};
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(pos => {
+      L.marker([pos.coords.latitude, pos.coords.longitude])
+        .addTo(map)
+        .bindPopup("You are here")
+        .openPopup();
+      map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+    }, err => alert("Location error: " + err.message));
+  } else {
+    alert("Geolocation is not supported by your browser.");
+  }
+</script>
 
-  // 📍 Track location
-  navigator.geolocation.watchPosition(pos => {
-    const lat = pos.coords.latitude;
-    const lon = pos.coords.longitude;
-
-    set(ref(database, `players/${playerId}`), {
-      lat,
-      lon,
-      lastUpdate: Date.now()
-    });
-
-  }, err => alert(err.message), { enableHighAccuracy: true });
-
-  // ❌ Remove player when disconnecting
-  onDisconnect(ref(database, `players/${playerId}`)).remove();
-
-  // 👀 Listen to all players
-  onValue(ref(database, "players"), snapshot => {
-    const players = snapshot.val() || {};
-
-    // Add / update markers
-    for (const id in players) {
-      const { lat, lon } = players[id];
-
-      if (!playerMarkers[id]) {
-        playerMarkers[id] = L.marker([lat, lon])
-          .addTo(map)
-          .bindPopup(id);
-      }
+</body>
+</html>
