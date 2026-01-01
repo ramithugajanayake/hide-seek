@@ -84,6 +84,15 @@
       margin-top:4px;
       margin-bottom:10px;
     }
+
+    .name-label {
+      font-weight:bold;
+      background: rgba(255,255,255,0.8);
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
   </style>
 </head>
 
@@ -163,9 +172,7 @@ window.openSettings = () => {
   roleInput.value = role;
   settingsModal.style.display = "flex";
 };
-
 window.closeSettings = () => settingsModal.style.display = "none";
-
 window.saveSettings = () => {
   name = nameInput.value.trim() || "Player";
   role = roleInput.value;
@@ -177,8 +184,22 @@ window.saveSettings = () => {
 /* Map Setup */
 const map = L.map("map", { editable:true }).setView([6.033,80.216],18);
 
+// Satellite + labels
 L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", { maxZoom:20 }).addTo(map);
 L.tileLayer("https://stamen-tiles.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png",{ maxZoom:20 }).addTo(map);
+
+/* Custom Icons */
+const seekerIcon = L.icon({
+  iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/5/5f/Red_target_icon.png',
+  iconSize: [32,32],
+  iconAnchor: [16,16]
+});
+
+const hiderIcon = L.icon({
+  iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/0/0c/Blue_user_icon.png',
+  iconSize: [32,32],
+  iconAnchor: [16,16]
+});
 
 /* Players */
 const markers = {};
@@ -193,17 +214,32 @@ navigator.geolocation.watchPosition(pos => {
   });
 });
 
-/* Render players */
+/* Render players with labels and popups */
 onValue(ref(db,"players"), snap => {
   const players = snap.val() || {};
   for (const id in players) {
     const p = players[id];
-    let color = p.role==="seeker"?"red":"blue";
+    let icon = p.role==="seeker"?seekerIcon:hiderIcon;
 
     if (!markers[id]) {
-      markers[id] = L.marker([p.lat,p.lon]).addTo(map)
-        .bindPopup(`${p.name} (${p.role})`);
-    } else markers[id].setLatLng([p.lat,p.lon]);
+      markers[id] = L.marker([p.lat,p.lon],{icon}).addTo(map);
+
+      // Clickable popup
+      markers[id].bindPopup(`<b>${p.name}</b><br>${p.role}<br>Last: ${new Date(p.last).toLocaleTimeString()}`);
+
+      // Small always-visible label
+      const label = L.divIcon({
+        className:'name-label',
+        html:p.name,
+        iconAnchor:[-10,-10]
+      });
+      markers[id+"_label"] = L.marker([p.lat,p.lon],{icon:label, interactive:false}).addTo(map);
+
+    } else {
+      markers[id].setLatLng([p.lat,p.lon]);
+      markers[id+"_label"].setLatLng([p.lat,p.lon]);
+      markers[id].getPopup().setContent(`<b>${p.name}</b><br>${p.role}<br>Last: ${new Date(p.last).toLocaleTimeString()}`);
+    }
   }
 });
 
