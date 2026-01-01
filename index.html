@@ -1,234 +1,166 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Hide & Seek Demo</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-editable@1.2.0/dist/leaflet-editable.css" />
-  
-  <!-- Load Bropella Font -->
-  <link href="https://fonts.googleapis.com/css2?family=Bropella:wght@400;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <title>Hide & Seek World</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Google Font -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 
   <style>
-    body { margin: 0; padding: 0; }
-
-    #header {
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 60px;
-      padding: 15px 20px; text-align: center;
-      font-family: 'Bropella', sans-serif; font-size: 24px; font-weight: 700;
-      color: #000; background: rgba(255,255,255,0.1);
-      backdrop-filter: blur(12px) saturate(180%);
-      border-bottom: 1px solid rgba(0,0,0,0.1);
-      box-shadow: 0 8px 32px 0 rgba(0,0,0,0.2); z-index: 1000;
-      border-radius: 0 0 16px 16px;
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Poppins', sans-serif;
     }
 
-    #map { height: calc(100vh - 60px); width: 100%; margin-top: 60px; }
-
-    #controls {
-      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-      background: rgba(255,255,255,0.9); padding: 10px 15px;
-      border-radius: 10px; font-family: 'Bropella', sans-serif; z-index: 1001;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-    }
-    #controls input, #controls select, #controls button {
-      padding: 5px; font-size: 14px; margin: 2px;
+    body {
+      height: 100vh;
+      background: linear-gradient(135deg, #1e88e5, #26c6da);
+      color: white;
+      overflow: hidden;
     }
 
-    /* Pulsing red marker for hiders outside safe zone */
-    .hider-outside {
-      width: 20px; height: 20px;
+    /* Header */
+    header {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      padding: 20px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    header h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+    }
+
+    header button {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      padding: 10px 18px;
+      border-radius: 20px;
+      cursor: pointer;
+      font-weight: 600;
+      backdrop-filter: blur(10px);
+    }
+
+    /* Hero Section */
+    .hero {
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .hero h2 {
+      font-size: 2.6rem;
+      font-weight: 700;
+      max-width: 800px;
+      line-height: 1.3;
+    }
+
+    .hero p {
+      margin-top: 20px;
+      font-size: 1.1rem;
+      opacity: 0.9;
+    }
+
+    .play-btn {
+      margin-top: 40px;
+      padding: 16px 50px;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #1e88e5;
+      background: white;
+      border: none;
+      border-radius: 40px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .play-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 30px rgba(0,0,0,0.25);
+    }
+
+    /* Floating shapes (simple visual polish) */
+    .bubble {
+      position: absolute;
+      background: rgba(255,255,255,0.15);
       border-radius: 50%;
-      background: red;
-      border: 2px solid white;
-      animation: pulse 1.5s infinite;
+      animation: float 8s infinite ease-in-out;
     }
 
-    @keyframes pulse {
-      0% { transform: scale(1); opacity: 1; }
-      50% { transform: scale(1.5); opacity: 0.5; }
-      100% { transform: scale(1); opacity: 1; }
+    .bubble:nth-child(1) {
+      width: 120px;
+      height: 120px;
+      top: 20%;
+      left: 10%;
     }
 
-    /* Normal player marker */
-    .player-marker {
-      width: 20px; height: 20px;
-      border-radius: 50%;
-      background: blue;
-      border: 2px solid white;
+    .bubble:nth-child(2) {
+      width: 180px;
+      height: 180px;
+      bottom: 15%;
+      right: 12%;
+      animation-delay: 2s;
+    }
+
+    .bubble:nth-child(3) {
+      width: 90px;
+      height: 90px;
+      top: 65%;
+      left: 25%;
+      animation-delay: 4s;
+    }
+
+    @keyframes float {
+      0% { transform: translateY(0); }
+      50% { transform: translateY(-25px); }
+      100% { transform: translateY(0); }
     }
   </style>
 </head>
+
 <body>
 
-<div id="header">Hide & Seek Demo</div>
-<div id="map"></div>
+  <!-- Decorative bubbles -->
+  <div class="bubble"></div>
+  <div class="bubble"></div>
+  <div class="bubble"></div>
 
-<div id="controls">
-  <input type="text" id="nameInput" placeholder="Enter your name">
-  <button id="changeNameBtn">Change Name</button>
-  <select id="roleSelect">
-    <option value="hider">Hider</option>
-    <option value="seeker">Seeker</option>
-  </select>
-  <input type="number" id="zoneRadius" placeholder="Safe Zone Radius (m)">
-  <button id="updateZoneBtn">Update Zone</button>
-</div>
+  <!-- Header -->
+  <header>
+    <h1>Hide & Seek World</h1>
+    <button>About</button>
+  </header>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/leaflet-editable@1.2.0/dist/Leaflet.Editable.js"></script>
+  <!-- Hero -->
+  <section class="hero">
+    <h2>
+      Play Hide & Seek<br>
+      In The Real World
+    </h2>
 
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, set, onValue, onDisconnect, update } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+    <p>
+      Find your friends. Hide smarter.  
+      The classic game — powered by live maps.
+    </p>
 
-// ---------------- Firebase ----------------
-const firebaseConfig = {
-  apiKey: "AIzaSyD259A37SrWNP8jaRP7h3NLKQMIAsr5jC4",
-  authDomain: "hide-seek-demo-f6c65.firebaseapp.com",
-  databaseURL: "https://hide-seek-demo-f6c65-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "hide-seek-demo-f6c65",
-  storageBucket: "hide-seek-demo-f6c65.firebasestorage.app",
-  messagingSenderId: "457844478016",
-  appId: "1:457844478016:web:7e576a496bea1fe03d8fa5"
-};
-
-const app = initializeApp(firebaseConfig);
-const database = getDatabase(app);
-
-// ---------------- Player Setup ----------------
-let playerId = localStorage.getItem("playerId") || ("player_" + Date.now());
-localStorage.setItem("playerId", playerId);
-
-let playerName = localStorage.getItem("playerName") || "Player_" + Math.floor(Math.random()*1000);
-let playerRole = localStorage.getItem("playerRole") || "hider";
-localStorage.setItem("playerName", playerName);
-localStorage.setItem("playerRole", playerRole);
-
-// UI elements
-const nameInput = document.getElementById("nameInput");
-const changeNameBtn = document.getElementById("changeNameBtn");
-const roleSelect = document.getElementById("roleSelect");
-const zoneRadiusInput = document.getElementById("zoneRadius");
-const updateZoneBtn = document.getElementById("updateZoneBtn");
-
-nameInput.value = playerName;
-roleSelect.value = playerRole;
-
-changeNameBtn.onclick = () => {
-  playerName = nameInput.value.trim() || playerName;
-  playerRole = roleSelect.value;
-  localStorage.setItem("playerName", playerName);
-  localStorage.setItem("playerRole", playerRole);
-  update(ref(database, `players/${playerId}`), { name: playerName, role: playerRole });
-}
-
-// ---------------- Map Setup ----------------
-const map = L.map('map', { editable: true }).setView([6.033, 80.216], 16);
-const satellite = L.tileLayer(
-  'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-  { attribution: 'Tiles © Esri', maxZoom: 19 }
-).addTo(map);
-
-const playerMarkers = {};
-
-// ---------------- Safe Zone ----------------
-let safeZone = map.editTools.startCircle([6.033, 80.216], 50, {
-  color: 'blue', fillOpacity: 0.2
-});
-
-function saveSafeZone() {
-  const center = safeZone.getLatLng();
-  const radius = safeZone.getRadius();
-  set(ref(database, "safeZone"), { lat: center.lat, lon: center.lng, radius });
-}
-
-safeZone.on('editable:dragend', saveSafeZone);
-safeZone.on('editable:editing', saveSafeZone);
-
-updateZoneBtn.onclick = () => {
-  const r = Number(zoneRadiusInput.value);
-  if (r > 0) { safeZone.setRadius(r); saveSafeZone(); }
-}
-
-// ---------------- Track Player Location ----------------
-if (navigator.geolocation) {
-  navigator.geolocation.watchPosition(pos => {
-    const lat = pos.coords.latitude;
-    const lon = pos.coords.longitude;
-
-    set(ref(database, `players/${playerId}`), {
-      lat, lon, name: playerName, role: playerRole, lastUpdate: Date.now()
-    });
-    onDisconnect(ref(database, `players/${playerId}`)).remove();
-
-    if (!playerMarkers[playerId]) {
-      playerMarkers[playerId] = L.marker([lat, lon], {
-        icon: L.divIcon({ className: 'player-marker' })
-      })
-      .addTo(map)
-      .bindTooltip(playerName, { permanent: true, direction: 'top', offset: [0, -10] });
-    } else {
-      playerMarkers[playerId].setLatLng([lat, lon]);
-      playerMarkers[playerId].setTooltipContent(playerName);
-    }
-
-    map.setView([lat, lon], 16);
-  }, err => alert("Location error: " + err.message), { enableHighAccuracy: true });
-}
-
-// ---------------- Listen to All Players ----------------
-onValue(ref(database, "players"), snapshot => {
-  const players = snapshot.val() || {};
-  for (const id in players) {
-    const { lat, lon, name, role } = players[id];
-    if (!playerMarkers[id]) {
-      playerMarkers[id] = L.marker([lat, lon], {
-        icon: L.divIcon({ className: role==="hider"?'player-marker':'player-marker' })
-      })
-      .addTo(map)
-      .bindTooltip(name, { permanent: true, direction: 'top', offset: [0, -10] });
-    } else {
-      playerMarkers[id].setLatLng([lat, lon]);
-      playerMarkers[id].setTooltipContent(name);
-    }
-  }
-  for (const id in playerMarkers) {
-    if (!players[id]) {
-      map.removeLayer(playerMarkers[id]);
-      delete playerMarkers[id];
-    }
-  }
-});
-
-// ---------------- Sync Safe Zone + Highlight Hiders ----------------
-setInterval(() => {
-  onValue(ref(database, "safeZone"), snapshot => {
-    const zone = snapshot.val();
-    if (!zone) return;
-    safeZone.setLatLng([zone.lat, zone.lon]);
-    safeZone.setRadius(zone.radius);
-  });
-
-  onValue(ref(database, "players"), snapshot => {
-    const players = snapshot.val() || {};
-    const center = safeZone.getLatLng();
-    const radius = safeZone.getRadius();
-    for (const id in players) {
-      if (!playerMarkers[id]) continue;
-      const p = players[id];
-      const dist = map.distance([p.lat, p.lon], center);
-
-      // Highlight hiders outside the safe zone
-      if (dist > radius && players[id].role === "hider") {
-        playerMarkers[id].setIcon(L.divIcon({ className: 'hider-outside' }));
-      } else {
-        playerMarkers[id].setIcon(L.divIcon({ className: 'player-marker' }));
-      }
-    }
-  });
-}, 2000);
-</script>
+    <a href="game.html">
+      <button class="play-btn">Play Now</button>
+    </a>
+  </section>
 
 </body>
 </html>
