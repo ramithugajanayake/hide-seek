@@ -140,7 +140,7 @@ let role = localStorage.getItem("playerRole") || "hider";
 const topBar = document.getElementById("topBar");
 topBar.textContent = `${name} — ${role.toUpperCase()}`;
 
-/* Settings handlers */
+/* Settings */
 window.openSettings = () => {
   nameInput.value = name;
   roleInput.value = role;
@@ -154,10 +154,8 @@ window.closeSettings = () => {
 window.saveSettings = () => {
   name = nameInput.value.trim() || "Player";
   role = roleInput.value;
-
   localStorage.setItem("playerName", name);
   localStorage.setItem("playerRole", role);
-
   location.reload();
 };
 
@@ -177,7 +175,6 @@ L.tileLayer(
 /* Players */
 const markers = {};
 
-/* Location */
 navigator.geolocation.watchPosition(pos => {
   set(ref(db,"players/"+playerId), {
     name,
@@ -209,7 +206,7 @@ onValue(ref(db,"players"), snap => {
   }
 });
 
-/* Seeker Zone */
+/* Seeker zone */
 let circle = null;
 const slider = radiusSlider;
 const value = radiusValue;
@@ -217,6 +214,23 @@ const box = radiusBox;
 
 if (role === "seeker") box.style.display = "block";
 
+/* 🔥 CREATE ZONE IF MISSING */
+if (role === "seeker") {
+  const zoneRef = ref(db,"game/zone");
+  onValue(zoneRef, snap => {
+    if (!snap.exists()) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        set(zoneRef, {
+          lat:pos.coords.latitude,
+          lon:pos.coords.longitude,
+          radius:150
+        });
+      });
+    }
+  }, { onlyOnce:true });
+}
+
+/* Sync zone */
 onValue(ref(db,"game/zone"), snap => {
   const z = snap.val();
   if (!z) return;
@@ -238,8 +252,10 @@ onValue(ref(db,"game/zone"), snap => {
   value.textContent = z.radius+" m";
 });
 
+/* Seeker updates */
 if (role === "seeker") {
   map.on("editable:dragend", () => {
+    if (!circle) return;
     const c = circle.getLatLng();
     set(ref(db,"game/zone"), {
       lat:c.lat,
@@ -249,6 +265,7 @@ if (role === "seeker") {
   });
 
   slider.oninput = () => {
+    if (!circle) return;
     value.textContent = slider.value+" m";
     circle.setRadius(slider.value);
 
