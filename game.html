@@ -2,183 +2,223 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Hide & Seek - Game</title>
+<title>Hide & Seek – Game</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <!-- Leaflet CSS -->
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
-<!-- Google Fonts -->
+<!-- Font -->
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
-  body, html { height: 100%; margin: 0; font-family: 'Poppins', sans-serif; }
-  #map { height: 100%; width: 100%; }
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: 'Poppins', sans-serif;
+}
 
-  /* Pulsing marker CSS */
-  .pulse {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    background: #ff3b3b;
-    position: relative;
-    box-shadow: 0 0 0 rgba(255,59,59,0.7);
-    animation: pulse 1.5s infinite;
-  }
+#map {
+  height: 100%;
+  width: 100%;
+}
 
-  @keyframes pulse {
-    0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255,59,59,0.7); }
-    70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(255,59,59,0); }
-    100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255,59,59,0); }
-  }
+/* iOS-style glass header */
+#header {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.35);
+  backdrop-filter: blur(14px);
+  padding: 10px 14px;
+  border-radius: 18px;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
 
-  /* Header */
-  #header {
-    position: absolute;
-    top: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: rgba(255,255,255,0.3);
-    padding: 10px 20px;
-    border-radius: 20px;
-    backdrop-filter: blur(10px);
-    z-index: 1000;
-    font-weight: 600;
-  }
+#header input {
+  padding: 6px 10px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 600;
+  outline: none;
+}
 
-  #header input {
-    padding: 5px 10px;
-    border-radius: 12px;
-    border: none;
-    font-weight: 600;
-  }
+#header button {
+  padding: 6px 14px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 600;
+  background: rgba(0,0,0,0.85);
+  color: white;
+  cursor: pointer;
+}
+
+/* Pulsing marker */
+.pulse {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ff3b3b;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255,59,59,0.6); }
+  70% { transform: scale(1); box-shadow: 0 0 0 14px rgba(255,59,59,0); }
+  100% { transform: scale(0.9); box-shadow: 0 0 0 0 rgba(255,59,59,0); }
+}
+
+.player-name {
+  position: absolute;
+  top: 22px;
+  left: -18px;
+  font-size: 12px;
+  font-weight: 600;
+  color: black;
+  white-space: nowrap;
+}
 </style>
 </head>
+
 <body>
 
+<!-- Header -->
 <div id="header">
-  Your Name: <input type="text" id="playerName" placeholder="Enter name" />
+  <input type="text" id="playerName" placeholder="Your name">
+  <button id="saveName">Save</button>
 </div>
 
 <div id="map"></div>
 
-<!-- Leaflet JS -->
+<!-- Leaflet -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Firebase JS SDK -->
 <script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
+import { getDatabase, ref, set, onValue, onDisconnect } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-  // Firebase config
-  const firebaseConfig = {
-    apiKey: "AIzaSyD259A37SrWNP8jaRP7h3NLKQMIAsr5jC4",
-    authDomain: "hide-seek-demo-f6c65.firebaseapp.com",
-    databaseURL: "https://hide-seek-demo-f6c65-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "hide-seek-demo-f6c65",
-    storageBucket: "hide-seek-demo-f6c65.firebasestorage.app",
-    messagingSenderId: "457844478016",
-    appId: "1:457844478016:web:7e576a496bea1fe03d8fa5"
-  };
+/* 🔥 Firebase config (Asia region – IMPORTANT) */
+const firebaseConfig = {
+  apiKey: "AIzaSyD259A37SrWNP8jaRP7h3NLKQMIAsr5jC4",
+  authDomain: "hide-seek-demo-f6c65.firebaseapp.com",
+  databaseURL: "https://hide-seek-demo-f6c65-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "hide-seek-demo-f6c65",
+  storageBucket: "hide-seek-demo-f6c65.firebasestorage.app",
+  messagingSenderId: "457844478016",
+  appId: "1:457844478016:web:7e576a496bea1fe03d8fa5"
+};
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
 
-  // Player ID & Name
-  let playerId = localStorage.getItem("playerId");
-  if (!playerId) {
-    playerId = 'player-' + Math.floor(Math.random() * 100000);
-    localStorage.setItem("playerId", playerId);
+/* Player ID */
+let playerId = localStorage.getItem("playerId");
+if (!playerId) {
+  playerId = "player-" + Math.floor(Math.random() * 100000);
+  localStorage.setItem("playerId", playerId);
+}
+
+/* Player Name */
+const nameInput = document.getElementById("playerName");
+const saveBtn = document.getElementById("saveName");
+
+let playerName = localStorage.getItem("playerName") || "";
+if (!playerName) {
+  playerName = prompt("Enter your player name") || playerId;
+  localStorage.setItem("playerName", playerName);
+}
+nameInput.value = playerName;
+
+/* Map */
+const map = L.map("map").setView([6.033, 80.216], 18);
+
+/* Esri Satellite */
+L.tileLayer(
+  "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+  { maxZoom: 20 }
+).addTo(map);
+
+/* Stamen Labels */
+L.tileLayer(
+  "https://stamen-tiles.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png",
+  { maxZoom: 20 }
+).addTo(map);
+
+/* Location tracking */
+let watchId = null;
+
+function startTracking() {
+  if (!navigator.geolocation) {
+    alert("Geolocation not supported");
+    return;
   }
 
-  const nameInput = document.getElementById("playerName");
-  let playerName = localStorage.getItem("playerName") || '';
+  if (watchId) navigator.geolocation.clearWatch(watchId);
 
-  if (!playerName) {
-    playerName = prompt("Enter your player name:") || playerId;
-    localStorage.setItem("playerName", playerName);
-    nameInput.value = playerName;
-  } else {
-    nameInput.value = playerName;
-  }
+  watchId = navigator.geolocation.watchPosition(pos => {
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
 
-  // Map setup
-  const map = L.map('map').setView([6.033, 80.216], 18);
+    set(ref(db, "players/" + playerId), {
+      lat,
+      lon,
+      name: playerName,
+      lastUpdate: Date.now()
+    });
 
-  // Esri Satellite layer
-  const satelliteLayer = L.tileLayer(
-    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 
-    { attribution: 'Tiles &copy; Esri', maxZoom: 20 }
-  ).addTo(map);
-
-  // Stamen Labels overlay
-  const labelsLayer = L.tileLayer(
-    'https://stamen-tiles.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png',
-    { attribution: 'Map labels &copy; Stamen Design', maxZoom: 20 }
-  ).addTo(map);
-
-  const playerMarkers = {};
-
-  // Update Player Location
-  function updatePlayerLocation() {
-    if (!navigator.geolocation) {
-      alert("Geolocation not supported by your browser");
-      return;
-    }
-
-    navigator.geolocation.watchPosition(pos => {
-      const lat = pos.coords.latitude;
-      const lon = pos.coords.longitude;
-
-      set(ref(db, `players/${playerId}`), {
-        lat,
-        lon,
-        name: playerName,
-        lastUpdate: Date.now()
-      });
-
-    }, err => alert("Location Error: " + err.message), { enableHighAccuracy: true });
-
-    onDisconnect(ref(db, `players/${playerId}`)).remove();
-  }
-
-  updatePlayerLocation();
-
-  // Name input listener
-  nameInput.addEventListener("change", () => {
-    playerName = nameInput.value.trim() || playerId;
-    localStorage.setItem("playerName", playerName);
-    updatePlayerLocation();
+  }, err => alert("Location error: " + err.message), {
+    enableHighAccuracy: true
   });
 
-  // Listen for all players
-  onValue(ref(db, "players"), snapshot => {
-    const players = snapshot.val() || {};
-    for (const id in players) {
-      const { lat, lon, name } = players[id];
+  onDisconnect(ref(db, "players/" + playerId)).remove();
+}
 
-      if (!playerMarkers[id]) {
-        const pulseIcon = L.divIcon({
-          className: '',
-          html: `<div class="pulse"></div>
-                 <div style="position:absolute;top:20px;left:-10px;color:black;font-weight:600;">${name}</div>`,
-          iconSize: [18,18],
-          iconAnchor: [9,9],
-        });
-        playerMarkers[id] = L.marker([lat, lon], {icon: pulseIcon}).addTo(map);
-      } else {
-        playerMarkers[id].setLatLng([lat, lon]);
-        playerMarkers[id].setIcon(L.divIcon({
-          className: '',
-          html: `<div class="pulse"></div>
-                 <div style="position:absolute;top:20px;left:-10px;color:black;font-weight:600;">${name}</div>`,
-          iconSize: [18,18],
-          iconAnchor: [9,9],
-        }));
-      }
+startTracking();
+
+/* Save name */
+function saveName() {
+  playerName = nameInput.value.trim() || playerId;
+  localStorage.setItem("playerName", playerName);
+  startTracking();
+}
+
+saveBtn.addEventListener("click", saveName);
+nameInput.addEventListener("keydown", e => {
+  if (e.key === "Enter") {
+    saveName();
+    nameInput.blur();
+  }
+});
+
+/* Show all players */
+const markers = {};
+
+onValue(ref(db, "players"), snap => {
+  const players = snap.val() || {};
+
+  for (const id in players) {
+    const { lat, lon, name } = players[id];
+
+    const icon = L.divIcon({
+      className: "",
+      html: `<div class="pulse"></div><div class="player-name">${name}</div>`,
+      iconSize: [18,18],
+      iconAnchor: [9,9]
+    });
+
+    if (!markers[id]) {
+      markers[id] = L.marker([lat, lon], { icon }).addTo(map);
+    } else {
+      markers[id].setLatLng([lat, lon]);
+      markers[id].setIcon(icon);
     }
-  });
-
+  }
+});
 </script>
+
 </body>
 </html>
