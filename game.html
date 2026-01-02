@@ -1,22 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+
 <title>Hide & Seek – Game</title>
 
 <!-- Leaflet -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link
+  rel="stylesheet"
+  href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <!-- Leaflet Editable -->
 <script src="https://unpkg.com/leaflet-editable@1.2.0/src/Leaflet.Editable.js"></script>
 
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
 <style>
 html, body {
   margin: 0;
-  padding: 0;
   height: 100%;
-  background: black;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #000;
 }
 
 #map {
@@ -24,7 +34,55 @@ html, body {
   width: 100%;
 }
 
-/* ===== Player markers ===== */
+/* ===== HEADER ===== */
+header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  backdrop-filter: blur(18px);
+  background: rgba(255,255,255,0.75);
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  z-index: 1000;
+  gap: 8px;
+}
+
+header input,
+header select {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+}
+
+header button {
+  padding: 6px 12px;
+  border-radius: 10px;
+  border: none;
+  background: #007aff;
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ===== SEEKER CONTROLS ===== */
+#seekerControls {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.9);
+  padding: 12px 16px;
+  border-radius: 16px;
+  backdrop-filter: blur(14px);
+  z-index: 1000;
+  display: none;
+}
+
+/* ===== MARKERS ===== */
 .player-marker {
   width: 14px;
   height: 14px;
@@ -33,277 +91,184 @@ html, body {
   box-shadow: 0 0 8px rgba(0,0,0,0.4);
 }
 
-.seeker-marker { background: #ff3b30; }
-.hider-marker { background: #007aff; }
-
-/* ===== UI ===== */
-.glass {
-  position: absolute;
-  top: 12px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(255,255,255,0.35);
-  backdrop-filter: blur(18px);
-  padding: 10px 16px;
-  border-radius: 18px;
-  font-weight: 700;
-  z-index: 1000;
+.seeker-marker {
+  background-color: #ff3b30;
 }
 
-.settings {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  background: rgba(255,255,255,0.35);
-  backdrop-filter: blur(18px);
-  padding: 8px 12px;
-  border-radius: 16px;
-  cursor: pointer;
-  z-index: 1000;
+.hider-marker {
+  background-color: #007aff;
 }
 
-#radiusBox {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(255,255,255,0.35);
-  backdrop-filter: blur(18px);
-  padding: 12px 16px;
-  border-radius: 20px;
-  display: none;
-  z-index: 1000;
-}
-
-#settingsModal {
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,0.45);
-  display: none;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
-}
-
-#settingsModal > div {
-  background: rgba(255,255,255,0.4);
-  backdrop-filter: blur(20px);
-  padding: 20px;
-  border-radius: 20px;
-  width: 260px;
-}
-
-input, select, button {
-  width: 100%;
-  margin-bottom: 10px;
-  padding: 6px;
+/* 🔥 FIX FOR RECTANGLE BUG */
+.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
 }
 </style>
 </head>
 
 <body>
 
-<div class="glass" id="topBar"></div>
-<div class="settings" onclick="openSettings()">⚙️</div>
+<header>
+  <input id="nameInput" placeholder="Your name" />
+  <button onclick="saveName()">Save</button>
 
-<div id="radiusBox">
-  <b>Zone Radius</b><br>
-  <input type="range" id="radiusSlider" min="50" max="500" value="150">
-  <span id="radiusValue">150 m</span>
-  <br><br>
-  <b>Zone Color</b><br>
-  <button onclick="setZoneColor('red')">🔴</button>
-  <button onclick="setZoneColor('orange')">🟠</button>
-  <button onclick="setZoneColor('yellow')">🟡</button>
-  <button onclick="setZoneColor('green')">🟢</button>
-  <button onclick="setZoneColor('blue')">🔵</button>
-  <button onclick="setZoneColor('indigo')">🟣</button>
-  <button onclick="setZoneColor('violet')">🟪</button>
+  <select id="roleSelect" onchange="changeRole()">
+    <option value="hider">Hider</option>
+    <option value="seeker">Seeker</option>
+  </select>
+</header>
+
+<div id="seekerControls">
+  <label>
+    Radius:
+    <input
+      type="range"
+      min="50"
+      max="500"
+      step="10"
+      id="radiusSlider"
+    />
+  </label>
 </div>
 
 <div id="map"></div>
 
-<!-- Settings -->
-<div id="settingsModal">
-  <div>
-    <h3>Player Settings</h3>
-    <label>Name</label>
-    <input id="nameInput">
-    <label>Role</label>
-    <select id="roleInput">
-      <option value="hider">Hider</option>
-      <option value="seeker">Seeker</option>
-    </select>
-    <button onclick="saveSettings()">Save</button>
-    <button onclick="closeSettings()">Cancel</button>
-  </div>
-</div>
-
-<script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-app.js";
-import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
-
-/* ===== Firebase ===== */
+<script>
+/* ===== FIREBASE CONFIG ===== */
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "YOUR_PROJECT",
+  databaseURL:
+    "https://hide-seek-demo-f6c65-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
 
-/* ===== Player identity ===== */
-let playerId = localStorage.getItem("playerId") || crypto.randomUUID();
+/* ===== USER ===== */
+const playerId = localStorage.getItem("playerId") || crypto.randomUUID();
 localStorage.setItem("playerId", playerId);
 
-let name = localStorage.getItem("playerName") || "Player";
+let playerName = localStorage.getItem("playerName") || "";
 let role = localStorage.getItem("playerRole") || "hider";
 
-topBar.textContent = `${name} — ${role.toUpperCase()}`;
+document.getElementById("nameInput").value = playerName;
+document.getElementById("roleSelect").value = role;
 
-/* ===== Settings ===== */
-window.openSettings = () => {
-  nameInput.value = name;
-  roleInput.value = role;
-  settingsModal.style.display = "flex";
-};
+/* ===== MAP ===== */
+const map = L.map("map", { editable: true }).setView([0, 0], 18);
 
-window.closeSettings = () => settingsModal.style.display = "none";
-
-window.saveSettings = () => {
-  localStorage.setItem("playerName", nameInput.value || "Player");
-  localStorage.setItem("playerRole", roleInput.value);
-  location.reload();
-};
-
-/* ===== Map ===== */
-const map = L.map("map", { editable: true }).setView([6.033, 80.216], 18);
-
+/* Satellite + labels */
 L.tileLayer(
   "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-  { maxZoom: 20 }
+  { maxZoom: 22 }
 ).addTo(map);
 
 L.tileLayer(
-  "https://stamen-tiles.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png",
-  { maxZoom: 20 }
+  "https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png",
+  { maxZoom: 22 }
 ).addTo(map);
 
-/* ===== Marker factory ===== */
-function getMarkerIcon(role) {
+/* ===== MARKERS ===== */
+const markers = {};
+let seekerCircle = null;
+
+/* ===== ICON FACTORY ===== */
+function getIcon(r) {
   return L.divIcon({
     className: "",
-    html: `<div class="player-marker ${role}-marker"></div>`,
-    iconSize: [14,14],
-    iconAnchor: [7,7]
+    html: `<div class="player-marker ${r}-marker"></div>`,
+    iconSize: [20, 20],
+    iconAnchor: [10, 10]
   });
 }
 
-const markers = {};
+/* ===== LOCATION ===== */
+navigator.geolocation.watchPosition(
+  pos => {
+    const { latitude, longitude } = pos.coords;
+    map.setView([latitude, longitude], map.getZoom());
 
-/* ===== Location tracking ===== */
-navigator.geolocation.watchPosition(pos => {
-  set(ref(db, "players/" + playerId), {
-    name,
-    role,
-    lat: pos.coords.latitude,
-    lon: pos.coords.longitude,
-    last: Date.now()
-  });
-});
+    db.ref("players/" + playerId).set({
+      name: playerName || "Player",
+      role,
+      lat: latitude,
+      lng: longitude
+    });
+  },
+  err => alert("Location error: " + err.message),
+  { enableHighAccuracy: true }
+);
 
-/* ===== Render players ===== */
-onValue(ref(db, "players"), snap => {
-  const players = snap.val() || {};
-  for (const id in players) {
-    const p = players[id];
+/* ===== LISTEN PLAYERS ===== */
+db.ref("players").on("value", snap => {
+  const data = snap.val() || {};
+
+  Object.keys(data).forEach(id => {
+    const p = data[id];
     if (!markers[id]) {
-      markers[id] = L.marker([p.lat, p.lon], {
-        icon: getMarkerIcon(p.role)
-      }).addTo(map)
-        .bindPopup(`<b>${p.name}</b><br>${p.role}`);
+      markers[id] = L.marker([p.lat, p.lng], {
+        icon: getIcon(p.role)
+      }).addTo(map);
     } else {
-      markers[id].setLatLng([p.lat, p.lon]);
+      markers[id].setLatLng([p.lat, p.lng]);
+      markers[id].setIcon(getIcon(p.role));
     }
-  }
+
+    markers[id].bindPopup(`<b>${p.name}</b><br>${p.role}`);
+  });
 });
 
-/* ===== Zone ===== */
-let circle = null;
-
-if (role === "seeker") radiusBox.style.display = "block";
-
-onValue(ref(db, "game/zone"), snap => {
-  const z = snap.val();
-  if (!z) return;
-
-  if (!circle) {
-    circle = L.circle([z.lat, z.lon], {
-      radius: z.radius,
-      color: z.color,
-      fillOpacity: 0.15
-    }).addTo(map);
-
-    if (role === "seeker") circle.enableEdit();
-  } else {
-    circle.setLatLng([z.lat, z.lon]);
-    circle.setRadius(z.radius);
-    circle.setStyle({ color: z.color });
-  }
-
-  radiusSlider.value = z.radius;
-  radiusValue.textContent = z.radius + " m";
-});
-
-/* ===== Seeker controls ===== */
-if (role === "seeker") {
-  navigator.geolocation.getCurrentPosition(pos => {
-    set(ref(db, "game/zone"), {
-      lat: pos.coords.latitude,
-      lon: pos.coords.longitude,
-      radius: 150,
-      color: "red"
-    });
-  });
-
-  radiusSlider.oninput = () => {
-    if (!circle) return;
-    circle.setRadius(radiusSlider.value);
-    radiusValue.textContent = radiusSlider.value + " m";
-    const c = circle.getLatLng();
-    set(ref(db, "game/zone"), {
-      lat: c.lat,
-      lon: c.lng,
-      radius: Number(radiusSlider.value),
-      color: circle.options.color
-    });
-  };
-
-  map.on("editable:dragend", () => {
-    if (!circle) return;
-    const c = circle.getLatLng();
-    set(ref(db, "game/zone"), {
-      lat: c.lat,
-      lon: c.lng,
-      radius: circle.getRadius(),
-      color: circle.options.color
-    });
-  });
+/* ===== NAME ===== */
+function saveName() {
+  playerName = document.getElementById("nameInput").value.trim();
+  localStorage.setItem("playerName", playerName);
 }
 
-window.setZoneColor = color => {
-  if (!circle) return;
-  circle.setStyle({ color });
-  const c = circle.getLatLng();
-  set(ref(db, "game/zone"), {
-    lat: c.lat,
-    lon: c.lng,
-    radius: circle.getRadius(),
-    color
-  });
-};
+/* ===== ROLE ===== */
+function changeRole() {
+  role = document.getElementById("roleSelect").value;
+  localStorage.setItem("playerRole", role);
+
+  if (role === "seeker") {
+    document.getElementById("seekerControls").style.display = "block";
+    enableSeekerCircle();
+  } else {
+    document.getElementById("seekerControls").style.display = "none";
+    removeSeekerCircle();
+  }
+}
+
+/* ===== SEEKER CIRCLE ===== */
+function enableSeekerCircle() {
+  if (seekerCircle) return;
+
+  seekerCircle = L.circle(map.getCenter(), {
+    radius: 150,
+    color: "#ff3b30",
+    fillColor: "#ff3b30",
+    fillOpacity: 0.15
+  }).addTo(map);
+
+  seekerCircle.enableEdit();
+
+  document.getElementById("radiusSlider").value = 150;
+  document.getElementById("radiusSlider").oninput = e => {
+    seekerCircle.setRadius(e.target.value);
+  };
+}
+
+function removeSeekerCircle() {
+  if (seekerCircle) {
+    map.removeLayer(seekerCircle);
+    seekerCircle = null;
+  }
+}
+
+/* ===== INIT ===== */
+if (role === "seeker") {
+  document.getElementById("seekerControls").style.display = "block";
+  enableSeekerCircle();
+}
 </script>
 
 </body>
